@@ -1,0 +1,420 @@
+// Prisma Schema for Ember & Spice Full-Stack Restaurant Platform
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  KITCHEN
+  MANAGER
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  HOME_DELIVERY
+}
+
+enum OrderStatus {
+  PLACED
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  SERVED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  CREDIT_CARD
+  STRIPE
+  BKASH
+  NAGAD
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum TableType {
+  INDOOR
+  OUTDOOR
+  COUPLE
+  FAMILY
+  VIP
+}
+
+enum TableStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  CLEANING
+  UNAVAILABLE
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  SEATED
+  COMPLETED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  phone         String?
+  role          Role           @default(CUSTOMER)
+  avatar        String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  orders        Order[]
+  reservations  Reservation[]
+  reviews       Review[]
+  addresses     Address[]
+  notifications Notification[]
+  cart          Cart?
+
+  @@index([email])
+}
+
+model Address {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String   @default("Home")
+  addressLine  String
+  area         String
+  district     String
+  instructions String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model MenuCategory {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  icon        String?
+  description String?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  foodItems   FoodItem[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([slug])
+}
+
+model FoodItem {
+  id             String        @id @default(uuid())
+  categoryId     String
+  category       MenuCategory  @relation(fields: [categoryId], references: [id])
+  name           String
+  description    String
+  price          Float
+  originalPrice  Float?
+  rating         Float         @default(5.0)
+  reviewsCount   Int           @default(0)
+  image          String
+  isSpicy        Boolean       @default(false)
+  spiceLevel     Int           @default(0)
+  isVeg          Boolean       @default(false)
+  isVegan        Boolean       @default(false)
+  isPopular      Boolean       @default(false)
+  isNew          Boolean       @default(false)
+  isChefSpecial  Boolean       @default(false)
+  calories       Int           @default(0)
+  prepTime       String        @default("20-25 mins")
+  isAvailable    Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  variants       FoodVariant[]
+  addons         FoodAddon[]
+  ingredients    Ingredient[]
+  images         FoodImage[]
+  orderItems     OrderItem[]
+  cartItems      CartItem[]
+  reviews        Review[]
+
+  @@index([categoryId])
+  @@index([name])
+}
+
+model FoodImage {
+  id         String   @id @default(uuid())
+  foodItemId String
+  foodItem   FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  url        String
+  isPrimary  Boolean  @default(false)
+  caption    String?
+
+  @@index([foodItemId])
+}
+
+model FoodVariant {
+  id         String   @id @default(uuid())
+  foodItemId String
+  foodItem   FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  name       String
+  priceDelta Float    @default(0.0)
+
+  @@index([foodItemId])
+}
+
+model FoodAddon {
+  id         String   @id @default(uuid())
+  foodItemId String
+  foodItem   FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  name       String
+  price      Float
+
+  @@index([foodItemId])
+}
+
+model Ingredient {
+  id         String   @id @default(uuid())
+  foodItemId String
+  foodItem   FoodItem @relation(fields: [foodItemId], references: [id], onDelete: Cascade)
+  name       String
+
+  @@index([foodItemId])
+}
+
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  foodId    String
+  food      FoodItem @relation(fields: [foodId], references: [id])
+  quantity  Int      @default(1)
+  variant   String?
+  addons    String[]
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id               String       @id @default(uuid())
+  orderNumber      String       @unique
+  userId           String?
+  user             User?        @relation(fields: [userId], references: [id])
+  customerName     String
+  customerEmail    String
+  customerPhone    String
+  orderType        OrderType    @default(HOME_DELIVERY)
+  status           OrderStatus  @default(PLACED)
+  subtotal         Float
+  discount         Float        @default(0.0)
+  couponCode       String?
+  deliveryFee      Float        @default(0.0)
+  tax              Float        @default(0.0)
+  total            Float
+  specialRequests  String?
+  tableNumber      String?
+  items            OrderItem[]
+  payment          Payment?
+  delivery         Delivery?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([orderNumber])
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  foodId    String
+  food      FoodItem @relation(fields: [foodId], references: [id])
+  name      String
+  price     Float
+  quantity  Int
+  variant   String?
+  addons    String[]
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String        @unique
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  amount        Float
+  transactionId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Delivery {
+  id           String    @id @default(uuid())
+  orderId      String    @unique
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  address      String
+  area         String
+  district     String
+  instructions String?
+  driverName   String?
+  driverPhone  String?
+  dispatchedAt DateTime?
+  deliveredAt  DateTime?
+}
+
+model Reservation {
+  id                String            @id @default(uuid())
+  reservationNumber String            @unique
+  userId            String?
+  user              User?             @relation(fields: [userId], references: [id])
+  customerName      String
+  customerEmail     String
+  customerPhone     String
+  date              String
+  time              String
+  guests            Int
+  tableType         TableType         @default(INDOOR)
+  status            ReservationStatus @default(PENDING)
+  tableNumber       String?
+  specialRequest    String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([date])
+  @@index([status])
+}
+
+model RestaurantTable {
+  id        String      @id @default(uuid())
+  number    String      @unique
+  name      String
+  type      TableType   @default(INDOOR)
+  capacity  Int
+  location  String
+  status    TableStatus @default(AVAILABLE)
+  posX      Int         @default(0)
+  posY      Int         @default(0)
+  createdAt DateTime    @default(now())
+}
+
+model Review {
+  id           String    @id @default(uuid())
+  userId       String?
+  user         User?     @relation(fields: [userId], references: [id])
+  foodItemId   String?
+  foodItem     FoodItem? @relation(fields: [foodItemId], references: [id])
+  customerName String
+  rating       Int       @default(5)
+  comment      String
+  photoUrl     String?
+  isVerified   Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+
+  @@index([foodItemId])
+}
+
+model Coupon {
+  id           String       @id @default(uuid())
+  code         String       @unique
+  discountType DiscountType @default(PERCENTAGE)
+  value        Float
+  minOrder     Float        @default(0)
+  maxDiscount  Float?
+  expiryDate   DateTime
+  usageLimit   Int          @default(100)
+  usageCount   Int          @default(0)
+  active       Boolean      @default(true)
+  description  String
+  createdAt    DateTime     @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      String   @default("order")
+  read      Boolean  @default(false)
+  actionUrl String?
+  createdAt DateTime @default(now())
+}
+
+model Chef {
+  id         String   @id @default(uuid())
+  name       String
+  position   String
+  experience String
+  specialty  String
+  bio        String
+  image      String
+  socialUrl  String?
+}
+
+model Gallery {
+  id        String   @id @default(uuid())
+  title     String
+  category  String
+  imageUrl  String
+  featured  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Banner {
+  id        String   @id @default(uuid())
+  title     String
+  subtitle  String?
+  imageUrl  String
+  linkUrl   String?
+  isActive  Boolean  @default(true)
+}
+
+model RestaurantSetting {
+  id               String   @id @default("singleton")
+  brandName        String   @default("EMBER & SPICE")
+  tagline          String   @default("Where Every Bite Becomes a Memory.")
+  logoText         String   @default("EMBER & SPICE")
+  phone            String   @default("+1 (555) 789-3623")
+  email            String   @default("reservations@emberspice.com")
+  address          String   @default("452 Grand Boulevard, Culinary District, Metropolis")
+  weekdaysHours    String   @default("12:00 PM - 11:00 PM")
+  weekendsHours    String   @default("12:00 PM - 12:30 AM")
+  sundayHours      String   @default("11:30 AM - 10:30 PM")
+  deliveryFee      Float    @default(5.00)
+  taxRatePercent   Float    @default(8.5)
+  currency         String   @default("USD")
+  currencySymbol   String   @default("$")
+  updatedAt        DateTime @updatedAt
+}

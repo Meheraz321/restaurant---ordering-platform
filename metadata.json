@@ -1,0 +1,6 @@
+{
+  "name": "Ember & Spice - Premium 3D Restaurant & Ordering Platform",
+  "description": "Where Every Bite Becomes a Memory. Experience handcrafted flavors, interactive 3D dining, online ordering, reservations, and restaurant management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
